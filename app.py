@@ -1,4 +1,9 @@
+import json
 import streamlit as st
+
+from PIL import Image
+from modules.gemini_client import analyze_ppe
+
 
 st.set_page_config(
     page_title="Multimodal Construction Intelligence",
@@ -6,37 +11,29 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------
-# Header
-# -----------------------------
 
-st.title("🏗️ Multimodal Construction Intelligence Platform")
-
-st.markdown(
-    """
-    **AI-powered construction decision-support system**
-
-    Use this platform for:
-    - 🦺 PPE Safety Audit
-    - 🧱 Concrete Crack Diagnostics
-    - 💰 Project Planning & Real Estate Valuation
-    - 🌦️ Weather-Aware Site Advisory
-    - 🤖 Construction Engineering Assistant
-    """
-)
-
-st.info(
-    "This platform provides AI-assisted decision support. "
-    "It does not replace qualified safety, structural, or engineering professionals."
-)
-
-# -----------------------------
-# Sidebar
-# -----------------------------
+# =============================
+# SIDEBAR
+# =============================
 
 st.sidebar.title("🏗️ Construction AI")
 
-st.sidebar.markdown("### Navigation")
+st.sidebar.subheader("🔐 Gemini Configuration")
+
+api_key = st.sidebar.text_input(
+    "Gemini API Key",
+    type="password"
+)
+
+if api_key:
+    st.sidebar.success("Gemini API key entered")
+else:
+    st.sidebar.info(
+        "Enter your Gemini API key to enable AI analysis."
+    )
+
+
+st.sidebar.divider()
 
 page = st.sidebar.radio(
     "Select Module",
@@ -50,13 +47,38 @@ page = st.sidebar.radio(
     ]
 )
 
-# -----------------------------
-# Dashboard
-# -----------------------------
+
+# =============================
+# DASHBOARD
+# =============================
 
 if page == "🏠 Dashboard":
 
-    st.header("Project Dashboard")
+    st.title("🏗️ Multimodal Construction Intelligence Platform")
+
+    st.markdown(
+        """
+        ### AI-Powered Construction Decision Support
+
+        This platform provides AI-assisted tools for:
+
+        - 🦺 PPE Safety Audit
+        - 🧱 Concrete Crack Diagnostics
+        - 💰 Project Planning & Real Estate Valuation
+        - 🌦️ Weather-Aware Site Advisory
+        - 🤖 Construction Engineering Assistant
+        """
+    )
+
+    st.info(
+        "This is an AI-assisted decision-support system. "
+        "It does not replace qualified safety, structural, "
+        "or engineering professionals."
+    )
+
+    st.divider()
+
+    st.subheader("📊 Platform Modules")
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -72,70 +94,178 @@ if page == "🏠 Dashboard":
     with col4:
         st.metric("Weather Advisory", "Ready")
 
-    st.divider()
 
-    st.subheader("System Architecture")
-
-    st.code(
-        """
-User
-  │
-  ▼
-Streamlit Interface
-  │
-  ├── PPE Safety Audit
-  │       └── Gemini Vision
-  │
-  ├── Crack Diagnostics
-  │       └── Gemini Vision
-  │
-  ├── Planning & Valuation
-  │       └── Calculation Engine
-  │
-  ├── Weather Advisory
-  │       └── Safety Protocol Engine
-  │
-  └── Construction Chatbot
-          └── Gemini AI
-        """
-    )
-
-# -----------------------------
-# PPE Safety
-# -----------------------------
+# =============================
+# PPE SAFETY
+# =============================
 
 elif page == "🦺 Site Safety & PPE":
 
     st.header("🦺 Site Safety & PPE Audit")
 
+    st.write(
+        "Upload a construction-site image for "
+        "AI-assisted PPE and hazard screening."
+    )
+
     uploaded_file = st.file_uploader(
-        "Upload a construction site image",
+        "Upload construction site image",
         type=["jpg", "jpeg", "png"]
     )
 
     if uploaded_file:
 
+        image = Image.open(uploaded_file)
+
         st.image(
-            uploaded_file,
-            caption="Construction Site",
+            image,
+            caption="Uploaded Construction Site",
             use_container_width=True
         )
 
-        st.success("Image uploaded successfully.")
-
         if st.button("🔍 Analyze PPE"):
 
-            st.warning(
-                "Gemini Vision integration will be added in the next development step."
-            )
+            if not api_key:
 
-# -----------------------------
-# Crack Diagnostics
-# -----------------------------
+                st.warning(
+                    "Please enter your Gemini API key "
+                    "in the sidebar."
+                )
+
+            else:
+
+                with st.spinner(
+                    "Analyzing construction site..."
+                ):
+
+                    result = analyze_ppe(
+                        image,
+                        api_key
+                    )
+
+                if "error" in result:
+
+                    st.error(
+                        f"Analysis failed: {result['error']}"
+                    )
+
+                else:
+
+                    st.success(
+                        "PPE analysis completed!"
+                    )
+
+                    st.subheader("📊 Safety Assessment")
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+
+                        st.metric(
+                            "Safety Score",
+                            f"{result.get('safety_score', 0)}/100"
+                        )
+
+                    with col2:
+
+                        st.metric(
+                            "Overall Status",
+                            result.get(
+                                "overall_status",
+                                "Unknown"
+                            )
+                        )
+
+                    st.divider()
+
+                    st.subheader("🦺 PPE Detection")
+
+                    ppe = result.get(
+                        "ppe_detection",
+                        {}
+                    )
+
+                    for item, details in ppe.items():
+
+                        status = details.get(
+                            "status",
+                            "Unknown"
+                        )
+
+                        compliance = details.get(
+                            "compliance",
+                            False
+                        )
+
+                        if compliance:
+
+                            st.success(
+                                f"✅ "
+                                f"{item.replace('_', ' ').title()}: "
+                                f"{status}"
+                            )
+
+                        else:
+
+                            st.warning(
+                                f"⚠️ "
+                                f"{item.replace('_', ' ').title()}: "
+                                f"{status}"
+                            )
+
+                    st.divider()
+
+                    st.subheader("⚠️ Identified Hazards")
+
+                    hazards = result.get(
+                        "hazards",
+                        []
+                    )
+
+                    if hazards:
+
+                        for hazard in hazards:
+
+                            st.warning(
+                                f"""
+**{hazard.get('hazard', 'Unknown hazard')}**
+
+Severity: **{hazard.get('severity', 'Unknown')}**
+
+Remedy: {hazard.get('remedy', 'No remedy provided')}
+"""
+                            )
+
+                    else:
+
+                        st.success(
+                            "No obvious hazards were identified."
+                        )
+
+                    st.divider()
+
+                    st.subheader("📄 JSON Report")
+
+                    json_report = json.dumps(
+                        result,
+                        indent=4
+                    )
+
+                    st.download_button(
+                        "⬇️ Download JSON Report",
+                        data=json_report,
+                        file_name="ppe_safety_report.json",
+                        mime="application/json"
+                    )
+
+
+# =============================
+# CRACK DIAGNOSTICS
+# =============================
 
 elif page == "🧱 Crack Diagnostics":
 
-    st.header("🧱 Crack Diagnostics & Structural Integrity")
+    st.header("🧱 Crack Diagnostics")
 
     uploaded_file = st.file_uploader(
         "Upload concrete/wall surface image",
@@ -144,25 +274,29 @@ elif page == "🧱 Crack Diagnostics":
 
     if uploaded_file:
 
+        image = Image.open(uploaded_file)
+
         st.image(
-            uploaded_file,
+            image,
             caption="Concrete / Wall Surface",
             use_container_width=True
         )
 
-        if st.button("🔍 Analyze Crack"):
+        st.info(
+            "AI crack classification will be connected "
+            "in the next module."
+        )
 
-            st.warning(
-                "AI crack diagnostics will be connected in the next development step."
-            )
 
-# -----------------------------
-# Planning
-# -----------------------------
+# =============================
+# PLANNING & VALUATION
+# =============================
 
 elif page == "💰 Planning & Valuation":
 
-    st.header("💰 Project Planning & Real Estate Valuation")
+    st.header(
+        "💰 Project Planning & Real Estate Valuation"
+    )
 
     structure = st.selectbox(
         "Structure Type",
@@ -184,7 +318,11 @@ elif page == "💰 Planning & Valuation":
 
     tier = st.selectbox(
         "Location Tier",
-        ["Tier 1", "Tier 2", "Tier 3"]
+        [
+            "Tier 1",
+            "Tier 2",
+            "Tier 3"
+        ]
     )
 
     completion = st.slider(
@@ -194,22 +332,30 @@ elif page == "💰 Planning & Valuation":
         25
     )
 
-    st.subheader("Project Inputs")
-
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Structure", structure)
+        st.metric(
+            "Structure",
+            structure
+        )
 
     with col2:
-        st.metric("Built-up Area", f"{sqft:,} sqft")
+        st.metric(
+            "Built-up Area",
+            f"{sqft:,} sqft"
+        )
 
     with col3:
-        st.metric("Completion", f"{completion}%")
+        st.metric(
+            "Completion",
+            f"{completion}%"
+        )
 
-# -----------------------------
-# Weather Assistant
-# -----------------------------
+
+# =============================
+# WEATHER ASSISTANT
+# =============================
 
 elif page == "🌦️ Daily Site Assistant":
 
@@ -229,45 +375,45 @@ elif page == "🌦️ Daily Site Assistant":
 
         st.warning(
             """
-            ⚠️ HIGH WIND
+⚠️ HIGH WIND
 
-            Recommended precautions:
+Recommended precautions:
 
-            • Review crane operations  
-            • Secure loose construction materials  
-            • Restrict unsafe elevated work  
-            • Inspect temporary structures
-            """
+• Review crane operations
+• Secure loose construction materials
+• Restrict unsafe elevated work
+• Inspect temporary structures
+"""
         )
 
     elif weather == "Heavy Rain":
 
         st.warning(
             """
-            🌧️ HEAVY RAIN
+🌧️ HEAVY RAIN
 
-            Recommended precautions:
+Recommended precautions:
 
-            • Protect electrical equipment  
-            • Control water accumulation  
-            • Inspect site access routes  
-            • Protect concrete from excessive water exposure
-            """
+• Protect electrical equipment
+• Control water accumulation
+• Inspect site access routes
+• Protect concrete from excessive water exposure
+"""
         )
 
     elif weather == "Extreme Heat":
 
         st.warning(
             """
-            🌡️ EXTREME HEAT
+🌡️ EXTREME HEAT
 
-            Recommended precautions:
+Recommended precautions:
 
-            • Provide adequate drinking water  
-            • Schedule suitable work/rest periods  
-            • Monitor workers for heat-related illness  
-            • Follow appropriate concrete curing procedures
-            """
+• Provide adequate drinking water
+• Schedule suitable work/rest periods
+• Monitor workers for heat-related illness
+• Follow appropriate concrete curing procedures
+"""
         )
 
     else:
@@ -276,13 +422,16 @@ elif page == "🌦️ Daily Site Assistant":
             "Normal conditions. Continue standard site safety procedures."
         )
 
-# -----------------------------
-# Chatbot
-# -----------------------------
+
+# =============================
+# CHATBOT
+# =============================
 
 elif page == "🤖 Construction Chatbot":
 
-    st.header("🤖 Construction Engineering Assistant")
+    st.header(
+        "🤖 Construction Engineering Assistant"
+    )
 
     question = st.text_input(
         "Ask a construction-related question"
@@ -291,5 +440,6 @@ elif page == "🤖 Construction Chatbot":
     if question:
 
         st.info(
-            "Gemini-powered chatbot will be connected in the next development step."
+            "Gemini-powered chatbot will be connected "
+            "in the next development step."
         )
